@@ -25,7 +25,6 @@ def main():
             listDrawings.append(output)
         return listDrawings
 
-    qd = QuickDrawData()
     apple = QuickDrawDataGroup("apple")
     eye = QuickDrawDataGroup("eye")
     octagon = QuickDrawDataGroup("octagon")
