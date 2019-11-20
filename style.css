@@ -13,8 +13,8 @@ body {
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
-  --primary: #4545CC;
-  --secondary: #8EE3C8;
+  --primary: rgb(8, 8, 73);
+  --secondary: rgb(144, 192, 236);
 }
 
 * { box-sizing: border-box; }
@@ -42,14 +42,14 @@ a:hover {
 }
 
 header {
-  background-color: #F19CC5;
+  background-color: rgb(93, 149, 212);
   width: 100%;
   padding: 0 20px;
   border-bottom: 8px solid var(--secondary);
 }
 
 #splash {
-  background-color: #F19CC5;
+  background-color: rgb(92, 118, 189);
   position: absolute;
   top: 0;
   bottom: 0;
