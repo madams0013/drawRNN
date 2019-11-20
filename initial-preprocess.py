@@ -25,13 +25,13 @@ def main():
             listDrawings.append(output)
         return listDrawings
 
-    apple = QuickDrawDataGroup("apple")
+    ant = QuickDrawDataGroup("ant")
+    bee = QuickDrawDataGroup("bee")
     eye = QuickDrawDataGroup("eye")
-    octagon = QuickDrawDataGroup("octagon")
-    popsicle = QuickDrawDataGroup("popsicle")
+    hand = QuickDrawDataGroup("hand")
     pig = QuickDrawDataGroup("pig")
-    drawings = [apple, eye, octagon, popsicle, pig]
+    drawings = [ant, bee, eye, hand, pig]
     all_drawings = []
     for drawing in drawings:
-        all_drawings.append(makeListOfDrawings(drawing,100))
+        all_drawings.append(makeListOfDrawings(drawing,500))
     return all_drawings
