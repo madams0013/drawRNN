@@ -4,10 +4,11 @@ import logging
 import os
 import cloudstorage as gcs
 import gzip
+from matplotlib import pyplot as plt
+
 
 def read_file(self, filename):
   self.response.write('Reading the full file contents:\n')
-
   gcs_file = gcs.open(filename)
   contents = gcs_file.read()
   gcs_file.close()
@@ -220,6 +221,7 @@ def main():
     model = Model()
     train(model, final_train_inputs, final_train_labels)
     accuracy = test(model, final_test_inputs, final_test_labels)
+    visualize_results(final_test_inputs[1000:1010], model.call(final_test_inputs[1000:1010]), final_test_labels[1000:1010])
     print(accuracy)
 
 if __name__ == '__main__':
