@@ -10,20 +10,6 @@ import torch as torch
 import torch.nn as nn
 
 
-def read_file(self, filename):
-  self.response.write('Reading the full file contents:\n')
-  gcs_file = gcs.open(filename)
-  contents = gcs_file.read()
-  gcs_file.close()
-  self.response.write(contents)
-
-def preprocess(inputs_file_path):
-    inputs = np.load(inputs_file_path)
-    inputs_array = np.array((len(inputs), 784), dtype=np.float32)
-    inputs_array = np.array(inputs, dtype=np.float32)
-    inputs_array /= 255.0
-    return inputs_array
-
 def get_data(inputs_file_path):
     loaded = np.load(inputs_file_path)
     inputs = loaded['a']
@@ -32,7 +18,7 @@ def get_data(inputs_file_path):
     return final_inputs
 
 
-class Model:
+class Model(nn.Module):
     """
     This model class will contain the architecture for
     your single layer Neural Network for classifying MNIST with
@@ -42,20 +28,18 @@ class Model:
     sizes. Additionally, please exclusively use NumPy and
     Python built-in functions for your implementation.
     """
-
     def __init__(self):
+        super(Model, self).__init__()
         self.input_size = 784 
         self.num_classes = 2 
         self.batch_size = 100 
-        self.learning_rate = 0.5 
+        self.learning_rate = 0.01
 
-        #self.W = np.zeros((self.input_size, self.num_classes))
-        #self.b = np.zeros((1,self.num_classes))
-
-        self.conv1 = nn.Conv2d()
-        self.batchNorm1 = nn.BatchNorm1d()
-        self.relu1 = nn.relu()
-        self.optimizer = torch.optim.Adam(self.parameters(),lr=0.01)
+        self.model = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=28, kernel_size=5),
+            nn.ReLU(), nn.MaxPool2d(kernel_size=(2,2)), nn.Conv2d(in_channels=1, out_channels=12, kernel_size=2),
+            nn.ReLU(),nn.MaxPool2d(kernel_size=(2,2)), nn.Dropout(p=0.2), nn.Flatten(), nn.Linear(12*5*5,20),nn.ReLU(),
+            nn.Linear(50, 10),nn.ReLU(), nn.Linear(10,2), nn.Softmax())
+        self.optimizer = torch.optim.Adam(self.parameters(),lr=self.learning_rate)
 
     def call(self, inputs):
         """
@@ -64,9 +48,9 @@ class Model:
                        (batch_size x 784) (2D), where batch can be any number.
         :return: probabilities, probabilities for each class per image # (batch_size x 10)
         """
-        logits = np.matmul(inputs, self.W) + self.b
-        call_probabilities = np.exp(logits)/np.sum(np.exp(logits), axis = 1, keepdims=True)
-        return call_probabilities
+        inputs = np.reshape(inputs, (len(inputs),1, 28, 28))
+        inputs = torch.tensor(inputs)
+        return self.model(inputs)
 
     def loss(self, probabilities, labels):
         """
@@ -80,43 +64,7 @@ class Model:
         :param labels: the true batch labels
         :return: average loss per batch element (float)
         """
-        accumulated_loss = 0
-        for j in range(self.batch_size):
-            correct_answer = labels[j]
-            given_probability = probabilities[j][correct_answer]
-            accumulated_loss += -(np.log(given_probability))
-        return float(accumulated_loss)/self.batch_size
-
-    def back_propagation(self, inputs, probabilities, labels):
-        """
-        Returns the gradients for model's weights and biases
-        after one forward pass and loss calculation. The learning
-        algorithm for updating weights and biases mentioned in
-        class works for one image, but because we are looking at
-        batch_size number of images at each step, you should take the
-        average of the gradients across all images in the batch.
-        :param inputs: batch inputs (a batch of images)
-        :param probabilities: matrix that contains the probabilities of each
-        class for each image
-        :param labels: true labels
-        :return: gradient for weights,and gradient for biases
-        """
-        delta_W = np.zeros((self.input_size, self.num_classes))
-        delta_B = np.zeros((1,self.num_classes))
-        
-        for image in range(self.batch_size):
-            one_hot = np.zeros((1,self.num_classes))
-            correct_image_answer = labels[image]
-            one_hot[0][correct_image_answer] = 1 
-            trans_inputs = np.transpose(np.reshape(inputs[image], (1, self.input_size)))
-            delta_W +=  np.matmul(trans_inputs, (probabilities[image] - one_hot))
-            delta_B += (probabilities[image] - one_hot)
-
-        average_W = delta_W/float(self.batch_size)
-        average_B = delta_B/float(self.batch_size)
-        
-        return average_W, average_B
-
+        return self.cross_loss(probabilities, labels)/self.batch_size
 
     def accuracy(self, probabilities, labels):
         """
@@ -129,17 +77,6 @@ class Model:
         predictions = np.argmax(probabilities, axis=1)
         return np.mean(predictions == labels)
 
-    def gradient_descent(self, gradW, gradB):
-        '''
-        Given the gradients for weights and biases, does gradient
-        descent on the Model's parameters.
-        :param gradW: gradient for weights
-        :param gradB: gradient for biases
-        :return: None
-        '''
-        self.W -= self.learning_rate*gradW
-        self.b -= self.learning_rate*gradB
-
 def train(model, train_inputs, train_labels):
     '''
     Trains the model on all of the inputs and labels.
@@ -151,14 +88,18 @@ def train(model, train_inputs, train_labels):
     '''
     current_batch = model.batch_size
     num_iterations = int(len(train_inputs)/model.batch_size)
-
+    loss = nn.CrossEntropyLoss()
 
     for i in range(num_iterations):
         new_train_inputs = train_inputs[i * current_batch : (i * current_batch) + current_batch]
         new_train_labels = train_labels[i * current_batch : (i * current_batch) + current_batch]
         train_call_probabilities = model.call(new_train_inputs)
-        train_w_grad, train_b_grad = model.back_propagation(new_train_inputs, train_call_probabilities, new_train_labels)
-        model.gradient_descent(train_w_grad, train_b_grad)
+        labels_tensor = torch.tensor(new_train_labels)
+        loss = model.loss(train_call_probabilities, labels_tensor)
+        model.optimizer.zero_grad()
+        loss.backward()
+        model.optimizer.step()
+    return None
 
 def test(model, test_inputs, test_labels):
     """
@@ -206,8 +147,8 @@ def main():
     :return: None
     '''
 
-    airplane_inputs = get_data('airplane.npz')
-    ant_inputs = preprocess('full_numpy_bitmap_ant.npy')
+    airplane_inputs = get_data('dataset/airplane.npz')
+    ant_inputs = get_data('dataset/ant.npz')
 
     airplane_break_length = math.floor(0.8*len(airplane_inputs))
     ant_break_length = math.floor(0.8*len(ant_inputs))
@@ -229,13 +170,23 @@ def main():
     final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels))
     final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels))
 
-    train_indices = tf.random.shuffle(np.arange(len(final_train_inputs)))
-    final_train_inputs = tf.gather(final_train_inputs, train_indices)
-    final_train_labels = tf.gather(final_train_labels, train_indices)
+    # train_indices = tf.random.shuffle(np.arange(len(final_train_inputs)))
+    # final_train_inputs = tf.gather(final_train_inputs, train_indices)
+    # final_train_labels = tf.gather(final_train_labels, train_indices)
 
-    test_indices = tf.random.shuffle(np.arange(len(final_test_inputs)))
-    final_test_inputs = tf.gather(final_test_inputs, test_indices)
-    final_test_labels = tf.gather(final_test_labels, test_indices)
+    # test_indices = tf.random.shuffle(np.arange(len(final_test_inputs)))
+    # final_test_inputs = tf.gather(final_test_inputs, test_indices)
+    # final_test_labels = tf.gather(final_test_labels, test_indices)
+
+    train_indices = np.arange(len(final_train_inputs))
+    np.random.shuffle(train_indices)
+    final_train_inputs = final_train_inputs[train_indices]
+    final_train_labels = final_train_labels[train_indices]
+
+    test_indices = np.arange(len(final_test_inputs))
+    np.random.shuffle(test_indices)
+    final_test_inputs = final_test_inputs[test_indices]
+    final_test_labels = final_test_labels[test_indices]
     
     model = Model()
     train(model, final_train_inputs, final_train_labels)
