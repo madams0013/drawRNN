@@ -6,6 +6,8 @@ import cloudstorage as gcs
 import gzip
 from matplotlib import pyplot as plt
 import tensorflow as tf
+import torch as torch
+import torch.nn as nn
 
 
 def read_file(self, filename):
@@ -47,8 +49,13 @@ class Model:
         self.batch_size = 100 
         self.learning_rate = 0.5 
 
-        self.W = np.zeros((self.input_size, self.num_classes))
-        self.b = np.zeros((1,self.num_classes))
+        #self.W = np.zeros((self.input_size, self.num_classes))
+        #self.b = np.zeros((1,self.num_classes))
+
+        self.conv1 = nn.Conv2d()
+        self.batchNorm1 = nn.BatchNorm1d()
+        self.relu1 = nn.relu()
+        self.optimizer = torch.optim.Adam(self.parameters(),lr=0.01)
 
     def call(self, inputs):
         """
