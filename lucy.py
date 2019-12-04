@@ -3,10 +3,7 @@ import math
 import logging
 import os
 import cloudstorage as gcs
-import webapp2
 import gzip
-
-from google.appengine.api import app_identity
 
 def read_file(self, filename):
   self.response.write('Reading the full file contents:\n')
@@ -73,12 +70,16 @@ class Model:
     """
 
     def __init__(self):
-        self.batch_size = 100 # setting batch size variable
-        self.num_classes = 2 # setting number of possible labels to 10
-        self.learning_rate = 0.5
-        self.input_size = 784 #size of image vectors
-        self.W = np.zeros((self.input_size, self.num_classes), dtype=np.float32) # initializing weights array
-        self.b = np.zeros(self.num_classes, dtype=np.float32) # initializing bias array
+        # Initialize all hyperparametrs to those mentioned in the handout 
+        self.input_size = 784 # Size of image vectors
+        self.num_classes = 2 # Number of classes/possible labels
+        self.batch_size = 100 # Number of images per each batch
+        self.learning_rate = 0.5 #Learning rate mentioned in the handout
+
+        # Initialize weights to be 784 x 10 
+        self.W = np.zeros((self.input_size, self.num_classes))
+        # Initialize the bias vector to be 1x10 
+        self.b = np.zeros((1,self.num_classes))
 
     def call(self, inputs):
         """
@@ -104,11 +105,19 @@ class Model:
         :param labels: the true batch labels
         :return: average loss per batch element (float)
         """
-        loss = np.zeros(self.batch_size, dtype=np.float32) # initializing loss array
-        for i in range(self.batch_size):
-            loss[i] = (-1)*np.log(probabilities[i][labels[i]])
-        average = np.mean(loss)
-        return average
+        # Create a counter to accumulate the cross entropy loss for my batch 
+        accumulated_loss = 0
+        #Go through every image in my bath size 
+        for j in range(self.batch_size):
+            # Get the "true" number that the model should output  
+            correct_answer = labels[j]
+            # Use the number to index into the probabilities array, to get the model's probability of 
+            # outputing that number. 
+            given_probability = probabilities[j][correct_answer]
+            # Calculate the cross-entropy loss
+            accumulated_loss += -(np.log(given_probability))
+        # Average the accumulated loss by dividing by the size of the batch 
+        return float(accumulated_loss)/self.batch_size
 
     def back_propagation(self, inputs, probabilities, labels):
         """
@@ -124,19 +133,42 @@ class Model:
         :param labels: true labels
         :return: gradient for weights,and gradient for biases
         """
-        # this function is called every time we go through a batch
+        # Create a "place-holder" matrix to store the changes in my weights and biases throughout my batch 
         delta_W = np.zeros((self.input_size, self.num_classes))
-        delta_B = np.zeros(self.num_classes)
-        for i in range(self.batch_size):
-            y_j = np.zeros(self.num_classes, dtype=int)
-            y_j[labels[i]] = 1
-            transposed_input = np.reshape(np.transpose(inputs[i]), (self.input_size,1))
-            delta_probabilities = np.reshape(probabilities[i]-y_j, (1,self.num_classes))
-            delta_W += np.matmul(transposed_input, delta_probabilities)
-            delta_B += (probabilities[i]-y_j)
-        delta_W /= self.batch_size
-        delta_B /= self.batch_size
-        return delta_W, delta_B
+        delta_B = np.zeros((1,self.num_classes))
+        
+        #Go through all of the images in my batch
+        for image in range(self.batch_size):
+            
+            # Create a one hot vector made up of all zeros. This one hot vector is of size 1 x 10
+            one_hot = np.zeros((1,self.num_classes))
+            
+            # Because my batch size is 100, and my labels matrix has 100 entries, I can use the current 
+            # index of my loop to get the "answer" of what the model should output 
+            correct_image_answer = labels[image]
+            
+            # Since the "correct_image_answer" is an index between 0 and 9, we can index into our one hot 
+            # vector and update the entry at that index to be 1. This is a vector representing what the
+            # correct answer of the model should be. 
+            one_hot[0][correct_image_answer] = 1 
+            
+            # Whenever I do inputs[image], I get a matrix with a shape of 784, . While the shape that I 
+            # want for inputs[image] is 784 x 1, just having the shape be 784, was causing troubles. 
+            # Therefore, I reshaped my matrix to 1 x 784 (what it should be originally) to make sure that
+            # getting the transpose would result in a shape of 784 x 1 instead of 784, . 
+            trans_inputs = np.transpose(np.reshape(inputs[image], (1, self.input_size))) #This gets an entire row, so 784 entries 
+            
+            # Update changes in W by following the formula seen in lecture 
+            delta_W +=  np.matmul(trans_inputs, (probabilities[image] - one_hot))
+            
+            # Update the bias similar to the weights, except for the multiplication with the inputs. 
+            delta_B += (probabilities[image] - one_hot)
+
+        #Get the average of the weights and the biases
+        average_W = delta_W/float(self.batch_size)
+        average_B = delta_B/float(self.batch_size)
+        
+        return average_W, average_B
 
 
     def accuracy(self, probabilities, labels):
@@ -147,11 +179,20 @@ class Model:
         :param labels: test set labels
         :return: Float (0,1) that contains batch accuracy
         """
-        model_labels = np.zeros(self.batch_size, dtype=np.float32)
-        for i in range(self.batch_size):
-            if labels[i] == np.argmax(probabilities[i]):
-                model_labels[i] = 1
-        return np.mean(model_labels)
+        # Keep a counter of the number of times that my model correctly categorized an image 
+        num_successes = 0
+        # Go through the matrix of probabilities for my test data 
+        for j in range(len(probabilities)):
+            # Get the "correct answer" that the model should output 
+            correct_number = labels[j]
+            # Get the index of the largest probability in a given row of the probability matrix 
+            predicted_number = np.argmax(probabilities[j])
+            # Check if the output of my model matched the correct answer 
+            if (predicted_number == correct_number):
+                num_successes += 1
+        # Calculate the batch accuracy by dividing by the batch size 
+        final_accuracy = float(num_successes)/self.batch_size
+        return final_accuracy
 
 
 
@@ -175,16 +216,20 @@ def train(model, train_inputs, train_labels):
     :param train_inputs: train labels (all labels to use for training)
     :return: None
     '''
-    start_point = 0
-    end_point = model.batch_size
-    while end_point <= len(train_inputs):
-        inputs_batch = train_inputs[start_point:end_point]
-        labels_batch = train_labels[start_point:end_point]
-        probabilities = model.call(inputs_batch)
-        weights, bias = model.back_propagation(inputs_batch, probabilities, labels_batch)
-        model.gradient_descent(weights, bias)
-        start_point = end_point
-        end_point = end_point + model.batch_size
+    current_batch = model.batch_size
+    # Get the number of times that our model is going to run 
+    num_iterations = int(len(train_inputs)/model.batch_size)
+    # Iterate over the training inputs and labels, in model.batch_size increments
+    for i in range(num_iterations):
+        # Get the train inputs and labels by splicing the data 
+        new_train_inputs = train_inputs[i * current_batch : (i * current_batch) + current_batch]
+        new_train_labels = train_labels[i * current_batch : (i * current_batch) + current_batch]
+
+        # For every batch, compute then descend the gradients for the model's weights
+        train_call_probabilities = model.call(new_train_inputs)
+        train_w_grad, train_b_grad = model.back_propagation(new_train_inputs, train_call_probabilities, new_train_labels)
+        model.gradient_descent(train_w_grad, train_b_grad)
+        # The model's loss was printed here. It went from 2 down to 0.35
 
 def test(model, test_inputs, test_labels):
     """
@@ -195,8 +240,12 @@ def test(model, test_inputs, test_labels):
     :param test_labels: MNIST test labels (all corresponding labels)
     :return: accuracy - Float (0,1)
     """
-    probabilities = model.call(test_inputs)
-    return model.accuracy(probabilities, test_labels)
+    # Iterate over the testing inputs and labels
+    model_test_probability = model.call(test_inputs)
+    print(model_test_probability)
+    # Return accuracy across testing set
+    model_test_accuracy = model.accuracy(model_test_probability, test_labels)
+    return model_test_accuracy
 
 def visualize_results(image_inputs, probabilities, image_labels):
     """
@@ -254,7 +303,6 @@ def main():
     final_test_inputs = np.concatenate((airplane_test_inputs, ant_test_inputs))
     final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels))
     final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels))
-    print(final_train_inputs.shape)
     # # Create Model
     model = Model()
     # # Train model by calling train() ONCE on all data
