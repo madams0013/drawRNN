@@ -4,6 +4,7 @@ import logging
 import os
 import cloudstorage as gcs
 import webapp2
+import gzip
 
 from google.appengine.api import app_identity
 
@@ -21,6 +22,44 @@ def preprocess(inputs_file_path):
     inputs_array = np.array(inputs, dtype=np.float32)
     inputs_array /= 255.0
     return inputs_array
+
+def get_data(inputs_file_path, labels_file_path, num_examples):
+	"""
+	Takes in an inputs file path and labels file path, unzips both files, 
+	normalizes the inputs, and returns (NumPy array of inputs, NumPy 
+	array of labels). Read the data of the file into a buffer and use 
+	np.frombuffer to turn the data into a NumPy array. Keep in mind that 
+	each file has a header of a certain size. This method should be called
+	within the main function of the model.py file to get BOTH the train and
+	test data. If you change this method and/or write up separate methods for 
+	both train and test data, we will deduct points.
+	:param inputs_file_path: file path for inputs, something like 
+	'MNIST_data/t10k-images-idx3-ubyte.gz'
+	:param labels_file_path: file path for labels, something like 
+	'MNIST_data/t10k-labels-idx1-ubyte.gz'
+	:param num_examples: used to read from the bytestream into a buffer. Rather 
+	than hardcoding a number to read from the bytestream, keep in mind that each image
+	(example) is 28 * 28, with a header of a certain number.
+	:return: NumPy array of inputs as float32 and labels as int8
+	"""
+	inputs = None
+	labels = None
+	
+	with open(inputs_file_path, 'rb') as f1, gzip.GzipFile(fileobj=f1) as bytestream1:
+		bytestream1.read(16)
+		inputs_buffer = bytestream1.read(784 * num_examples)
+		inputs = np.frombuffer(inputs_buffer, dtype=np.uint8)
+	
+	with open(labels_file_path, 'rb') as f2, gzip.GzipFile(fileobj=f2) as bytestream2:
+		bytestream2.read(8)
+		labels_buffer = bytestream2.read(num_examples)
+		labels = np.frombuffer(labels_buffer, dtype=np.uint8)
+	
+	norm_inputs = inputs/255.0
+	final_inputs = np.float32(norm_inputs)
+	final_labels = np.int8(labels)
+	final_inputs = np.reshape(final_inputs, (num_examples, 784))
+	return final_inputs, final_labels
 
 class Model:
     """
