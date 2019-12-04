@@ -30,6 +30,7 @@ import argparse
 import ast
 import functools
 import sys
+from new_classifier import all_drawings
 
 #import tensorflow.compat.v1 as tf
 import tensorflow as tf
@@ -78,7 +79,7 @@ def get_input_fn(mode, tfrecord_pattern, batch_size):
       - Dictionary of string feature name to `Tensor`.
       - `Tensor` of target labels.
     """
-    dataset = tf.data.TFRecordDataset.list_files(tfrecord_pattern)
+    dataset = all_drawings() #instead of creating a dataset of TFRecords, we load our list of drawings   
     if mode == tf.estimator.ModeKeys.TRAIN:
       dataset = dataset.shuffle(buffer_size=10)
     dataset = dataset.repeat()
