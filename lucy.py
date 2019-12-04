@@ -5,6 +5,7 @@ import os
 import cloudstorage as gcs
 import gzip
 from matplotlib import pyplot as plt
+import tensorflow as tf
 
 
 def read_file(self, filename):
@@ -143,6 +144,8 @@ def train(model, train_inputs, train_labels):
     '''
     current_batch = model.batch_size
     num_iterations = int(len(train_inputs)/model.batch_size)
+
+
     for i in range(num_iterations):
         new_train_inputs = train_inputs[i * current_batch : (i * current_batch) + current_batch]
         new_train_labels = train_labels[i * current_batch : (i * current_batch) + current_batch]
@@ -218,10 +221,19 @@ def main():
     final_test_inputs = np.concatenate((airplane_test_inputs, ant_test_inputs))
     final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels))
     final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels))
+
+    train_indices = tf.random.shuffle(np.arange(len(final_train_inputs)))
+    final_train_inputs = tf.gather(final_train_inputs, train_indices)
+    final_train_labels = tf.gather(final_train_labels, train_indices)
+
+    test_indices = tf.random.shuffle(np.arange(len(final_test_inputs)))
+    final_test_inputs = tf.gather(final_test_inputs, test_indices)
+    final_test_labels = tf.gather(final_test_labels, test_indices)
+    
     model = Model()
     train(model, final_train_inputs, final_train_labels)
     accuracy = test(model, final_test_inputs, final_test_labels)
-    visualize_results(final_test_inputs[1000:1010], model.call(final_test_inputs[1000:1010]), final_test_labels[1000:1010])
+    visualize_results(final_test_inputs[10:20], model.call(final_test_inputs[10:20]), final_test_labels[10:20])
     print(accuracy)
 
 if __name__ == '__main__':
