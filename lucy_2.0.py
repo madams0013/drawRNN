@@ -50,8 +50,6 @@ class Model(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2,2)),
             Reshape(-1, 4*4*50),
-            #nn.Dropout(p=0.2),
-            #nn.Flatten(),
             nn.Linear(4*4*50,500),
             nn.ReLU(),
             nn.Linear(500, 10),
@@ -206,7 +204,7 @@ def main():
     print("im after training")
     print("starting testing")
     accuracy = test(model, final_test_inputs, final_test_labels)
-    visualize_results(final_test_inputs[10:20], model.call(final_test_inputs[10:20]), final_test_labels[10:20])
+    visualize_results(np.array(final_test_inputs[10:20]), np.array(model.call(final_test_inputs[10:20]).detach().numpy()), np.array(final_test_labels[10:20]))
     print(accuracy)
 
 if __name__ == '__main__':
