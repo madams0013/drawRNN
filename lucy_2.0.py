@@ -36,7 +36,6 @@ class Model(nn.Module):
     """
     def __init__(self):
         super(Model, self).__init__()
-        self.input_size = 784 
         self.num_classes = 2 
         self.batch_size = 100 
         self.learning_rate = 0.01
@@ -54,7 +53,7 @@ class Model(nn.Module):
             nn.ReLU(),
             nn.Linear(500, 10),
             nn.ReLU(),
-            nn.Linear(10,2),
+            nn.Linear(10,self.num_classes),
             nn.Softmax(dim=1)
             )
         self.optimizer = torch.optim.Adam(self.parameters(),lr=self.learning_rate)
