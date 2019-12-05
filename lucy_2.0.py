@@ -17,6 +17,12 @@ def get_data(inputs_file_path):
     final_inputs = np.float32(norm_inputs)
     return final_inputs
 
+class Reshape(nn.Module):
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args 
+    def forward(self, x):
+        return x.view(self.shape)
 
 class Model(nn.Module):
     """
@@ -34,11 +40,25 @@ class Model(nn.Module):
         self.num_classes = 2 
         self.batch_size = 100 
         self.learning_rate = 0.01
+        self.cross_loss = nn.CrossEntropyLoss()
 
-        self.model = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=28, kernel_size=5),
-            nn.ReLU(), nn.MaxPool2d(kernel_size=(2,2)), nn.Conv2d(in_channels=1, out_channels=12, kernel_size=2),
-            nn.ReLU(),nn.MaxPool2d(kernel_size=(2,2)), nn.Dropout(p=0.2), nn.Flatten(), nn.Linear(12*5*5,20),nn.ReLU(),
-            nn.Linear(50, 10),nn.ReLU(), nn.Linear(10,2), nn.Softmax())
+        self.model = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=20, kernel_size=5, stride=1), 
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2,2)),
+            nn.Conv2d(in_channels=20, out_channels=50, kernel_size=5, stride=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2,2)),
+            Reshape(-1, 4*4*50),
+            #nn.Dropout(p=0.2),
+            #nn.Flatten(),
+            nn.Linear(4*4*50,500),
+            nn.ReLU(),
+            nn.Linear(500, 10),
+            nn.ReLU(),
+            nn.Linear(10,2),
+            nn.Softmax(dim=1)
+            )
         self.optimizer = torch.optim.Adam(self.parameters(),lr=self.learning_rate)
 
     def call(self, inputs):
@@ -110,7 +130,7 @@ def test(model, test_inputs, test_labels):
     :param test_labels: MNIST test labels (all corresponding labels)
     :return: accuracy - Float (0,1)
     """
-    model_test_probability = model.call(test_inputs)
+    model_test_probability = model.call(test_inputs).detach().numpy()
     model_test_accuracy = model.accuracy(model_test_probability, test_labels)
     return model_test_accuracy
 
@@ -170,14 +190,6 @@ def main():
     final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels))
     final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels))
 
-    # train_indices = tf.random.shuffle(np.arange(len(final_train_inputs)))
-    # final_train_inputs = tf.gather(final_train_inputs, train_indices)
-    # final_train_labels = tf.gather(final_train_labels, train_indices)
-
-    # test_indices = tf.random.shuffle(np.arange(len(final_test_inputs)))
-    # final_test_inputs = tf.gather(final_test_inputs, test_indices)
-    # final_test_labels = tf.gather(final_test_labels, test_indices)
-
     train_indices = np.arange(len(final_train_inputs))
     np.random.shuffle(train_indices)
     final_train_inputs = final_train_inputs[train_indices]
@@ -189,7 +201,10 @@ def main():
     final_test_labels = final_test_labels[test_indices]
     
     model = Model()
+    print("before training")
     train(model, final_train_inputs, final_train_labels)
+    print("im after training")
+    print("starting testing")
     accuracy = test(model, final_test_inputs, final_test_labels)
     visualize_results(final_test_inputs[10:20], model.call(final_test_inputs[10:20]), final_test_labels[10:20])
     print(accuracy)
