@@ -166,9 +166,12 @@ def main():
 
     airplane_inputs = get_data('dataset/airplane.npz')
     ant_inputs = get_data('dataset/ant.npz')
-
+    print(len(airplane_inputs))
+    print(len(ant_inputs))
     airplane_break_length = math.floor(0.8*len(airplane_inputs))
     ant_break_length = math.floor(0.8*len(ant_inputs))
+    print(airplane_break_length)
+    print(ant_break_length)
 
     airplane_train_inputs = airplane_inputs[:airplane_break_length]
     ant_train_inputs = ant_inputs[:ant_break_length]

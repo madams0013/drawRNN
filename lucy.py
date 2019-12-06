@@ -8,20 +8,6 @@ from matplotlib import pyplot as plt
 import tensorflow as tf
 
 
-def read_file(self, filename):
-  self.response.write('Reading the full file contents:\n')
-  gcs_file = gcs.open(filename)
-  contents = gcs_file.read()
-  gcs_file.close()
-  self.response.write(contents)
-
-def preprocess(inputs_file_path):
-    inputs = np.load(inputs_file_path)
-    inputs_array = np.array((len(inputs), 784), dtype=np.float32)
-    inputs_array = np.array(inputs, dtype=np.float32)
-    inputs_array /= 255.0
-    return inputs_array
-
 def get_data(inputs_file_path):
     loaded = np.load(inputs_file_path)
     inputs = loaded['a']
@@ -199,8 +185,8 @@ def main():
     :return: None
     '''
 
-    airplane_inputs = get_data('airplane.npz')
-    ant_inputs = preprocess('full_numpy_bitmap_ant.npy')
+    airplane_inputs = get_data('dataset/airplane.npz')
+    ant_inputs = get_data('dataset/airplane.npz')
 
     airplane_break_length = math.floor(0.8*len(airplane_inputs))
     ant_break_length = math.floor(0.8*len(ant_inputs))
