@@ -1,14 +1,17 @@
 import numpy as np
 import math
 from matplotlib import pyplot as plt
+import torch as torch
+import torch.nn as nn
 
 
 def get_data(inputs_file_path):
-    """
-    Opens up compressed file where the data is stored
-    :param inputs: file paths for the different sets of images
-    :return: inputs that are going to be used for the model
-    """  
+    '''
+    Get data function to load input data from compressed .npz files into
+    numpy arrays.
+    param inputs_file_path: string that defines the file path
+    return: numpy array consisting of all images
+    '''
     loaded = np.load(inputs_file_path)
     inputs = loaded['a']
     norm_inputs = inputs/255.0
@@ -16,12 +19,15 @@ def get_data(inputs_file_path):
     return final_inputs
 
 def preprocess(airplane_file, ant_file, cake_file):
-    """
-    Pre-processes the data used by the model.
-    :param inputs: file paths for the different sets of images
-    :return: train inputs, train labels, test inputs and test labels used by the 
-    model 
-    """    
+    '''
+    Preprocess function in order to get the first 50,000 images of each
+    of the three categories: airplane, ant, and cake. We take all of these
+    images and shuffle them, assign labels, and split into training/testing
+    data.
+    param airplane_file: numpy array of airplanes
+    param ant_file: numpy array of ants
+    param cake_file: numpy array of birthday cakes
+    '''
     airplane_inputs = get_data(airplane_file)
     ant_inputs = get_data(ant_file)
     cake_inputs = get_data(cake_file)
@@ -29,7 +35,9 @@ def preprocess(airplane_file, ant_file, cake_file):
     airplane_inputs = airplane_inputs[:50000]
     ant_inputs = ant_inputs[:50000]
     cake_inputs = cake_inputs[:50000]
-    
+
+    # splitting into training / testing data
+
     airplane_break_length = math.floor(0.8*len(airplane_inputs))
     ant_break_length = math.floor(0.8*len(ant_inputs))
     cake_break_length = math.floor(0.8*len(cake_inputs))
@@ -41,6 +49,8 @@ def preprocess(airplane_file, ant_file, cake_file):
     airplane_test_inputs = airplane_inputs[airplane_break_length:]
     ant_test_inputs = ant_inputs[ant_break_length:]
     cake_test_inputs = cake_inputs[cake_break_length:]
+
+    # assigning labels
 
     airplane_train_labels = [0 for _ in range(len(airplane_train_inputs))]
     ant_train_labels = [1 for _ in range(len(ant_train_inputs))]
@@ -55,6 +65,8 @@ def preprocess(airplane_file, ant_file, cake_file):
     final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels, cake_train_labels))
     final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels, cake_test_labels))
 
+    # shuffling inputs and labels
+
     train_indices = np.arange(len(final_train_inputs))
     np.random.shuffle(train_indices)
     final_train_inputs = final_train_inputs[train_indices]
@@ -64,78 +76,64 @@ def preprocess(airplane_file, ant_file, cake_file):
     np.random.shuffle(test_indices)
     final_test_inputs = final_test_inputs[test_indices]
     final_test_labels = final_test_labels[test_indices]
+
     return final_train_inputs, final_train_labels, final_test_inputs, final_test_labels
-    
 
+class Reshape(nn.Module):
+    '''
+    Class to define our own reshape layer for our convolutional neural network.
+    '''
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args
+    def forward(self, x):
+        return x.view(self.shape)
 
-class Model:
+class Model(nn.Module):
     """
-    Model class contains the functionality for the single-layer
-    Neural Network for the QuickDraw! Dataset
+    This model class will contain the architecture for
+    our convolutional Neural Network for classifying QuickDraw with
+    batched learning.
     """
-
     def __init__(self):
-        self.input_size = 784
+        super(Model, self).__init__()
         self.num_classes = 3
         self.batch_size = 100
-        self.learning_rate = 0.5
+        self.learning_rate = 0.001
 
-        self.W = np.zeros((self.input_size, self.num_classes))
-        self.b = np.zeros((1,self.num_classes))
+        self.model = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=20, kernel_size=5, stride=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2,2)),
+            nn.Conv2d(in_channels=20, out_channels=50, kernel_size=5, stride=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2,2)),
+            Reshape(-1, 4*4*50),
+            nn.Linear(4*4*50,500),
+            nn.ReLU(),
+            nn.Linear(500, 10),
+            nn.ReLU(),
+            nn.Linear(10,self.num_classes),
+            nn.Softmax(dim=1)
+            )
+        self.optimizer = torch.optim.Adam(self.parameters(),lr=self.learning_rate)
 
     def call(self, inputs):
         """
         Does the forward pass on an batch of input images.
-        :param inputs: normalized batch of images
-        :return: probabilities for each class for each image
+        :param inputs: batch of images,
+                       (batch_size x 784) (2D), where batch can be any number.
+        :return: probabilities, probabilities for each class per image # (batch_size x 3)
         """
-        logits = np.matmul(inputs, self.W) + self.b
-        call_probabilities = np.exp(logits)/np.sum(np.exp(logits), axis = 1, keepdims=True)
-        return call_probabilities
-
-    def loss(self, probabilities, labels):
-        """
-        Calculates the model cross-entropy loss after one forward pass.
-        :param probabilities matrix matrix 
-        :param labels: the true batch labels
-        :return: average loss per batch element (float)
-        """
-        accumulated_loss = 0
-        for j in range(self.batch_size):
-            correct_answer = labels[j]
-            given_probability = probabilities[j][correct_answer]
-            accumulated_loss += -(np.log(given_probability))
-        return float(accumulated_loss)/self.batch_size
-
-    def back_propagation(self, inputs, probabilities, labels):
-        """
-        Returns the gradients for model's weights and biases
-        after one forward pass and loss calculation. 
-        :param inputs: batch inputs
-        :param probabilities: probabilities matrix
-        :param labels: true labels
-        :return: gradient for weights,and gradient for biases
-        """
-        delta_W = np.zeros((self.input_size, self.num_classes))
-        delta_B = np.zeros((1,self.num_classes))
-
-        for image in range(self.batch_size):
-            one_hot = np.zeros((1,self.num_classes))
-            correct_image_answer = labels[image]
-            one_hot[0][correct_image_answer] = 1
-            trans_inputs = np.transpose(np.reshape(inputs[image], (1, self.input_size)))
-            delta_W +=  np.matmul(trans_inputs, (probabilities[image] - one_hot))
-            delta_B += (probabilities[image] - one_hot)
-
-        average_W = delta_W/float(self.batch_size)
-        average_B = delta_B/float(self.batch_size)
-
-        return average_W, average_B
+        inputs = np.reshape(inputs, (len(inputs),1, 28, 28))
+        inputs = torch.tensor(inputs)
+        return self.model(inputs)
 
 
     def accuracy(self, probabilities, labels):
         """
-        Calculates the model's accuracy 
+        Calculates the model's accuracy by comparing the number
+        of correct predictions with the correct answers.
         :param probabilities: result of running model.call() on test inputs
         :param labels: test set labels
         :return: Float (0,1) that contains batch accuracy
@@ -143,45 +141,37 @@ class Model:
         predictions = np.argmax(probabilities, axis=1)
         return np.mean(predictions == labels)
 
-    def gradient_descent(self, gradW, gradB):
-        '''
-        Given the gradients for weights and biases, does gradient
-        descent on the Model's parameters.
-        :param gradW: gradient for weights
-        :param gradB: gradient for biases
-        :return: None
-        '''
-        self.W -= self.learning_rate*gradW
-        self.b -= self.learning_rate*gradB
-
 def train(model, train_inputs, train_labels):
     '''
-    Trains the model on all of the inputs and labels.
-    :param model: the initialized model to use for the forward
-    pass and backward pass
+    Trains the model on all of the inputs and labels in batches.
+    :param model: the initialized model to perform the forward pass
     :param train_inputs: train inputs (all inputs to use for training)
     :param train_inputs: train labels (all labels to use for training)
     :return: None
     '''
     current_batch = model.batch_size
     num_iterations = int(len(train_inputs)/model.batch_size)
-
+    curr_loss = nn.CrossEntropyLoss()
 
     for i in range(num_iterations):
         new_train_inputs = train_inputs[i * current_batch : (i * current_batch) + current_batch]
         new_train_labels = train_labels[i * current_batch : (i * current_batch) + current_batch]
         train_call_probabilities = model.call(new_train_inputs)
-        train_w_grad, train_b_grad = model.back_propagation(new_train_inputs, train_call_probabilities, new_train_labels)
-        model.gradient_descent(train_w_grad, train_b_grad)
+        labels_tensor = torch.tensor(new_train_labels)
+        loss = curr_loss(train_call_probabilities, labels_tensor)
+        model.optimizer.zero_grad()
+        loss.backward()
+        model.optimizer.step()
+    return None
 
 def test(model, test_inputs, test_labels):
     """
-    Tests the model on the test inputs and labels. 
-    :param test_inputs: QuickDraw! test data (all images to be tested)
-    :param test_labels: QuickDraw! test labels (all corresponding labels)
+    Tests the model on the test inputs and labels.
+    :param test_inputs: QuickDraw test data (all images to be tested)
+    :param test_labels: QuickDraw test labels (all corresponding labels)
     :return: accuracy - Float (0,1)
     """
-    model_test_probability = model.call(test_inputs)
+    model_test_probability = model.call(test_inputs).detach().numpy()
     model_test_accuracy = model.accuracy(model_test_probability, test_labels)
     return model_test_accuracy
 
@@ -191,6 +181,10 @@ def visualize_results(image_inputs, probabilities, image_labels):
     :param image_inputs: image data from get_data()
     :param probabilities: the output of model.call()
     :param image_labels: the labels from get_data()
+
+    NOTE: DO NOT EDIT
+
+    :return: doesn't return anything, a plot should pop-up
     """
     images = np.reshape(image_inputs, (-1, 28, 28))
     predicted_labels = np.argmax(probabilities, axis=1)
@@ -208,19 +202,18 @@ def visualize_results(image_inputs, probabilities, image_labels):
 
 def main():
     '''
-    Read in Quick!Draw data, initializes model, and does training and testing. 
+    Read in airplane, ant, and cake data, initialize the model, and train and test the model
+    for one epoch.
     :return: None
     '''
-
     train_inputs, train_labels, test_inputs, test_labels = preprocess('dataset/airplane.npz', 'dataset/ant.npz', 'dataset/birthday_cake.npz')
-
     model = Model()
     print("training...")
     train(model, train_inputs, train_labels)
     print("testing...")
     accuracy = test(model, test_inputs, test_labels)
-    visualize_results(test_inputs[10:20], model.call(test_inputs[10:20]), test_labels[10:20])
-    print("The accuracy of our model is: ", accuracy)
+    visualize_results(np.array(test_inputs[10:20]), np.array(model.call(test_inputs[10:20]).detach().numpy()), np.array(test_labels[10:20]))
+    print("The accuracy of our model is: " , accuracy)
 
 if __name__ == '__main__':
     main()
