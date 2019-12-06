@@ -36,7 +36,7 @@ class Model(nn.Module):
     """
     def __init__(self):
         super(Model, self).__init__()
-        self.num_classes = 3
+        self.num_classes = 2 
         self.batch_size = 100 
         self.learning_rate = 0.01
         self.cross_loss = nn.CrossEntropyLoss()
@@ -166,32 +166,27 @@ def main():
 
     airplane_inputs = get_data('dataset/airplane.npz')
     ant_inputs = get_data('dataset/ant.npz')
-    cake_inputs = get_data('dataset/birthday_cake.npz')
+    
     
     airplane_break_length = math.floor(0.8*len(airplane_inputs))
     ant_break_length = math.floor(0.8*len(ant_inputs))
-    cake_break_length = math.floor(0.8*len(cake_inputs))
 
     airplane_train_inputs = airplane_inputs[:airplane_break_length]
     ant_train_inputs = ant_inputs[:ant_break_length]
-    cake_train_inputs = cake_inputs[:cake_break_length]
 
     airplane_test_inputs = airplane_inputs[airplane_break_length:]
     ant_test_inputs = ant_inputs[ant_break_length:]
-    cake_test_inputs = cake_inputs[cake_break_length:]
 
     airplane_train_labels = [0 for _ in range(len(airplane_train_inputs))]
     ant_train_labels = [1 for _ in range(len(ant_train_inputs))]
-    cake_train_labels = [2 for _ in range(len(cake_train_inputs))]
 
     airplane_test_labels = [0 for _ in range(len(airplane_test_inputs))]
     ant_test_labels = [1 for _ in range(len(ant_test_inputs))]
-    cake_test_labels = [2 for _ in range(len(cake_test_inputs))]
 
-    final_train_inputs = np.concatenate((airplane_train_inputs, ant_train_inputs, cake_train_inputs))
-    final_test_inputs = np.concatenate((airplane_test_inputs, ant_test_inputs, cake_test_inputs))
-    final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels, cake_train_labels))
-    final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels, cake_test_labels))
+    final_train_inputs = np.concatenate((airplane_train_inputs, ant_train_inputs))
+    final_test_inputs = np.concatenate((airplane_test_inputs, ant_test_inputs))
+    final_train_labels = np.concatenate((airplane_train_labels, ant_train_labels))
+    final_test_labels = np.concatenate((airplane_test_labels, ant_test_labels))
 
     train_indices = np.arange(len(final_train_inputs))
     np.random.shuffle(train_indices)
