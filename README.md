@@ -1,4 +1,4 @@
-# drawRNN
+# Guess What I'm Sketch'NN
 
 This is the final Deep Learning Project for Laurie, Maddy, Nisha, and Lucy. 
 
