@@ -17,6 +17,9 @@ HOW TO RUN OUR CODE:
     
     python3 cnn_three_classes.py
 
+We have also included the numpy conversion files that we used in order to 
+load our data into github. 
+
 KNOWN BUGS: None! :) 
 
 Thank you for grading our final project! Have a great winter break! :)
